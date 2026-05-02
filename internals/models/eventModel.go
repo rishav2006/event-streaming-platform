@@ -5,7 +5,7 @@ type EventModel struct {
 	Message string `json:"message"`
 }
 
-var Count int = 2;
+var Count int = 0;
 
 var Events = []EventModel{
 	{0, "Hello"},

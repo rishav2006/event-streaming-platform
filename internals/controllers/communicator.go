@@ -1,48 +1,85 @@
 package controllers
 
 import (
+	"bufio"
+	"fmt"
+	"io"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rishav2006/event-streaming/internals/models"
 )
 
-func Sender(c *gin.Context) {
-	var newSender models.EventModel
-	newSender.Offset = models.Count
-	models.Count = models.Count + 1
-	if err := c.BindJSON(&newSender); err != nil {
+func Producer(c *gin.Context) {
+	jsonData, err := io.ReadAll(c.Request.Body)
+	if err != nil {
 		c.JSON(400, gin.H{
-			"error": "error sending the message",
+			"error": "error reading the contents of the file",
 		})
 		return
 	}
-	models.Events = append(models.Events, newSender)
+	stringData := string(jsonData)
+
+	// Store it in file
+	file, err := os.OpenFile("internals/files/test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "error opening the file",
+		})
+	}
+
+	// Find the offset 
+	f, err := os.Open("internals/files/test.log")
+	scanner := bufio.NewScanner(f)
+	var exsOffset int = 0;
+	for scanner.Scan() {
+		exsOffset++;
+	}
+
+	line := fmt.Sprintf("%d | %s\n", exsOffset, stringData)
+	exsOffset++
+	file.WriteString(line)
 	c.JSON(201, gin.H{
 		"message": "message sent successfully",
 	})
 }
 
-func Receiver(c *gin.Context) {
-	c.JSON(200, models.Events)
-}
-
-func ReceiverOffset(c *gin.Context) {
-	var offsetStr = c.Query("offset")
-	if offsetStr == "" {
-		c.JSON(200, models.Events)
-		return
-	}
-	var offset, err = strconv.Atoi(offsetStr);
+func Consumer(c *gin.Context) {
+	file, err := os.Open("internals/files/test.log")
 	if err != nil {
 		c.JSON(400, gin.H{
-			"error" : "failed to convert from string to integer",
+			"error": "There was some error opening the file",
 		})
 	}
+	scanner := bufio.NewScanner(file)
+	defer file.Close()
 
-	for i, event := range models.Events {
-		if i >= offset {
-			c.JSON(200, event);
+	offsetString := c.Query("offset")
+	if offsetString == "" {
+		// Scan through the file and find out
+		for scanner.Scan() {
+			line := scanner.Text()
+			c.JSON(200, gin.H{
+				"message": line,
+			})
 		}
+		return
+	}
+	offset, err := strconv.Atoi(offsetString)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "failed to convert from string to integer",
+		})
+	}
+	var cnt int = 0
+	// Scan through the file and find out
+	for scanner.Scan() {
+		if cnt >= offset {
+			line := scanner.Text()
+			c.JSON(200, gin.H{
+				"message": line,
+			})
+		}
+		cnt++
 	}
 }
