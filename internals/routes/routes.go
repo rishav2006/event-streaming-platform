@@ -8,8 +8,10 @@ import (
 func NewRouter() *gin.Engine {
 	r := gin.Default()
 
-	r.POST("/produce", controllers.Producer)
-	r.GET("/consume", controllers.Consumer)
+	var d = controllers.Demo{}
+
+	r.POST("/produce", d.Producer)
+	r.GET("/consume", d.Consumer)
 
 	return r;
 }
