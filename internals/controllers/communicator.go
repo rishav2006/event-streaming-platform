@@ -12,10 +12,18 @@ import (
 )
 
 type Demo struct {
-	mu                 sync.Mutex
-	LastFileNumOrder   int
-	LastFileNumPayment int
+	mu                  sync.Mutex
+	LastFileNumOrder    int
+	LastFileNumPayment  int
+	Checker             bool
+	OffsetSliceOrders   []int
+	OffsetSlicePayments []int
+	ExsOffset           int
 }
+
+// func offsetCount(c *gin.Context, path string, o *[]int, k int) {
+// 	OffsetCalc(c, path, o, k)
+// }
 
 func (d *Demo) Producer(c *gin.Context) {
 	jsonData, err := io.ReadAll(c.Request.Body)
@@ -33,6 +41,46 @@ func (d *Demo) Producer(c *gin.Context) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// var offsetSliceOrders = []int{0, 0, 0}
+	// var offsetSlicePayments = []int{0, 0}
+	// var exsOffset int = 0
+
+	// Check for checker, if it's false then the offset has not been calculated yet, so calculate it
+
+	// path for orders requests
+	var orders = []string{
+		"internals/files/folders/orders/o0.log",
+		"internals/files/folders/orders/o1.log",
+		"internals/files/folders/orders/o2.log",
+	}
+
+	// path for payments requests
+	var payments = []string{
+		"internals/files/folders/payments/p0.log",
+		"internals/files/folders/payments/p1.log",
+	}
+
+	// path for default requests
+	var defaultPath string = "internals/files/folders/default/default.log"
+
+	if d.Checker == false {
+		// calculate offsets for all the files
+
+		// For orders
+		OffsetCalc(c, orders[0], &d.OffsetSliceOrders, 0)
+		OffsetCalc(c, orders[1], &d.OffsetSliceOrders, 1)
+		OffsetCalc(c, orders[2], &d.OffsetSliceOrders, 2)
+
+		// For payments
+		OffsetCalc(c, payments[0], &d.OffsetSlicePayments, 0)
+		OffsetCalc(c, payments[1], &d.OffsetSlicePayments, 1)
+
+		// For default
+		OffsetCalcInt(c, defaultPath, &d.ExsOffset)
+
+		d.Checker = true // set it to true
+	}
+
 	if stringOrders == true { // Order Case
 		path := "internals/files/folders/orders"
 		err := os.MkdirAll(path, 0755)
@@ -42,94 +90,43 @@ func (d *Demo) Producer(c *gin.Context) {
 			})
 			return
 		}
-		var offsetSliceOrders = []int{0, 0, 0}
 
 		if d.LastFileNumOrder == 2 {
-			file, err := os.OpenFile("internals/files/folders/orders/o0.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "error creating/opening the file",
-				})
-			}
-			f, err := os.Open("internals/files/folders/orders/o0.log")
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "There was some error opening the file",
-				})
-				return
-			}
-			scanner := bufio.NewScanner(f)
-			defer f.Close()
+			file, _ := CheckFolder(orders[0], c)
 
-			for scanner.Scan() {
-				offsetSliceOrders[0]++
-			}
-
-			line := fmt.Sprintf("%d | %s\n", offsetSliceOrders[0], stringData)
+			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[0], stringData)
+			fmt.Println(line, 0)
 			file.WriteString(line)
-			offsetSliceOrders[0]++
+			d.OffsetSliceOrders[0]++
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
+
 			file.Close()
 
 		} else if d.LastFileNumOrder == 0 {
-			file, err := os.OpenFile("internals/files/folders/orders/o1.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "error creating/opening the file",
-				})
-				return
-			}
-			f, err := os.Open("internals/files/folders/orders/o1.log")
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "There was some error opening the file",
-				})
-				return
-			}
-			scanner := bufio.NewScanner(f)
+			file, _ := CheckFolder(orders[1], c)
 
-			for scanner.Scan() {
-				offsetSliceOrders[1]++
-			}
-
-			line := fmt.Sprintf("%d | %s\n", offsetSliceOrders[1], stringData)
+			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[1], stringData)
 			file.WriteString(line)
-			offsetSliceOrders[1]++
+			fmt.Println(line, 1)
+			d.OffsetSliceOrders[1]++
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
+
 			file.Close()
 		} else if d.LastFileNumOrder == 1 {
-			file, err := os.OpenFile("internals/files/folders/orders/o2.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "error creating/opening the file",
-				})
-				return
-			}
+			file, _ := CheckFolder(orders[2], c)
 
-			f, err := os.Open("internals/files/folders/orders/o2.log")
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "There was some error opening the file",
-				})
-				return
-			}
-			scanner := bufio.NewScanner(f)
-
-			for scanner.Scan() {
-				offsetSliceOrders[2]++
-			}
-
-			line := fmt.Sprintf("%d | %s\n", offsetSliceOrders[2], stringData)
+			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[2], stringData)
 			file.WriteString(line)
-			offsetSliceOrders[2]++
+			fmt.Println(line, 2)
+			d.OffsetSliceOrders[2]++
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
-			f.Close()
+
 			file.Close()
 		}
 		d.LastFileNumOrder = (d.LastFileNumOrder + 1) % 3
@@ -143,67 +140,31 @@ func (d *Demo) Producer(c *gin.Context) {
 			})
 			return
 		}
-		var offsetSlicePayments = []int{0, 0}
 
 		if d.LastFileNumPayment == 0 {
-			file, err := os.OpenFile("internals/files/folders/payments/p1.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "error creating/opening the file",
-				})
-				return
-			}
-			f, err := os.Open("internals/files/folders/payments/p1.log")
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "There was some error opening the file",
-				})
-				return
-			}
-			scanner := bufio.NewScanner(f)
+			file, _ := CheckFolder(payments[1], c)
 
-			for scanner.Scan() {
-				offsetSlicePayments[1]++
-			}
-
-			line := fmt.Sprintf("%d | %s\n", offsetSlicePayments[1], stringData)
+			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[1], stringData)
 			file.WriteString(line)
-			offsetSlicePayments[1]++
+			d.OffsetSlicePayments[1]++
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to payments catalog",
 			})
-			f.Close()
+
 			file.Close()
 		} else if d.LastFileNumPayment == 1 {
-			file, err := os.OpenFile("internals/files/folders/payments/p0.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "error creating/opening the file",
-				})
-				return
-			}
-			f, err := os.Open("internals/files/folders/payments/p0.log")
-			if err != nil {
-				c.JSON(400, gin.H{
-					"error": "There was some error opening the file",
-				})
-				return
-			}
-			scanner := bufio.NewScanner(f)
+			file, _ := CheckFolder(payments[0], c)
 
-			for scanner.Scan() {
-				offsetSlicePayments[0]++
-			}
-
-			line := fmt.Sprintf("%d | %s\n", offsetSlicePayments[0], stringData)
+			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[0], stringData)
 			file.WriteString(line)
-			offsetSlicePayments[0]++
+			d.OffsetSlicePayments[0]++
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to payments catalog",
 			})
-			f.Close()
+
 			file.Close()
 		}
+
 		d.LastFileNumPayment = (d.LastFileNumPayment + 1) % 2
 
 	} else if stringOrders == false && stringPayments == false { // Default case
@@ -228,23 +189,24 @@ func (d *Demo) Producer(c *gin.Context) {
 		defer file.Close()
 
 		// Find the offset
-		f, err := os.Open("internals/files/folders/default/default.log")
-		if err != nil {
-			c.JSON(400, gin.H{
-				"error": "there was some error oprning the file for offset counting",
-			})
-			return
-		}
-		scanner := bufio.NewScanner(f)
-		var exsOffset int = 0
-		for scanner.Scan() {
-			exsOffset++
-		}
+		// f, err := os.Open("internals/files/folders/default/default.log")
+		// if err != nil {
+		// 	c.JSON(400, gin.H{
+		// 		"error": "there was some error oprning the file for offset counting",
+		// 	})
+		// 	return
+		// }
 
-		defer f.Close()
+		// scanner := bufio.NewScanner(f)
 
-		line := fmt.Sprintf("%d | %s\n", exsOffset, stringData)
-		exsOffset++
+		// for scanner.Scan() {
+		// 	exsOffset++
+		// }
+
+		// defer f.Close()
+
+		line := fmt.Sprintf("%d | %s\n", d.ExsOffset, stringData)
+		d.ExsOffset++
 		file.WriteString(line)
 
 		c.JSON(201, gin.H{
