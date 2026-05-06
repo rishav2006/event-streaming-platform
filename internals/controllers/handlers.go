@@ -51,7 +51,7 @@ func CheckFolder(path string, c *gin.Context) (*os.File, error) {
 	return file, nil
 }
 
-func ConsumerReadFiles(c *gin.Context, path string) (string, error) {
+func ConsumerReadFiles(c *gin.Context, path string, offset int) (string, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		c.JSON(400, gin.H{
@@ -61,8 +61,9 @@ func ConsumerReadFiles(c *gin.Context, path string) (string, error) {
 	}
 
 	var str string
-
 	for _, entry := range entries {
+		var count int = 0
+
 		fullPath := filepath.Join(path, entry.Name())
 		file, err := os.Open(fullPath)
 		if err != nil {
@@ -72,12 +73,17 @@ func ConsumerReadFiles(c *gin.Context, path string) (string, error) {
 			return "", err
 		}
 		scanner := bufio.NewScanner(file)
-		// var i int = 0
+		
 		for scanner.Scan() {
-			line := scanner.Text()
-			str = str + line
-			str += "\n"
+			if count < offset {
+				count++
+			} else {
+				line := scanner.Text()
+				str = str + line
+				str += "\n"
+			}
 		}
+
 	}
 	return str, nil
 }
