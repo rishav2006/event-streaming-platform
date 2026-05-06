@@ -8,7 +8,7 @@ import (
 func NewRouter() *gin.Engine {
 	r := gin.Default()
 
-	var d = controllers.Demo{LastFileNumOrder: 2, LastFileNumPayment: 1, Checker: false, ExsOffset: 0, OffsetSliceOrders: []int{0, 0, 0}, OffsetSlicePayments: []int{0, 0}}
+	var d = controllers.Demo{LastFileNumOrder: 2, LastFileNumPayment: 1, Checker: false, ExsOffset: 0, OffsetSliceOrders: []int{0, 0, 0}, OffsetSlicePayments: []int{0, 0}, CounterOrder: 0, CounterPayment: 0}
 
 	r.POST("/produce", d.Producer)
 	r.GET("/consume", d.Consumer)

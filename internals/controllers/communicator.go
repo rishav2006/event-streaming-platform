@@ -19,11 +19,9 @@ type Demo struct {
 	OffsetSliceOrders   []int
 	OffsetSlicePayments []int
 	ExsOffset           int
+	CounterOrder        int
+	CounterPayment      int
 }
-
-// func offsetCount(c *gin.Context, path string, o *[]int, k int) {
-// 	OffsetCalc(c, path, o, k)
-// }
 
 func (d *Demo) Producer(c *gin.Context) {
 	jsonData, err := io.ReadAll(c.Request.Body)
@@ -40,10 +38,6 @@ func (d *Demo) Producer(c *gin.Context) {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
-	// var offsetSliceOrders = []int{0, 0, 0}
-	// var offsetSlicePayments = []int{0, 0}
-	// var exsOffset int = 0
 
 	// Check for checker, if it's false then the offset has not been calculated yet, so calculate it
 
@@ -91,7 +85,7 @@ func (d *Demo) Producer(c *gin.Context) {
 			return
 		}
 
-		if d.LastFileNumOrder == 2 {
+		if d.CounterOrder%3 == 0 {
 			file, _ := CheckFolder(orders[0], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[0], stringData)
@@ -101,10 +95,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
-
 			file.Close()
 
-		} else if d.LastFileNumOrder == 0 {
+		} else if d.CounterOrder%3 == 1 {
 			file, _ := CheckFolder(orders[1], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[1], stringData)
@@ -114,9 +107,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
-
 			file.Close()
-		} else if d.LastFileNumOrder == 1 {
+
+		} else if d.CounterOrder%3 == 2 {
 			file, _ := CheckFolder(orders[2], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[2], stringData)
@@ -126,10 +119,10 @@ func (d *Demo) Producer(c *gin.Context) {
 			c.JSON(201, gin.H{
 				"message": "message successfully sent to orders catalog",
 			})
-
 			file.Close()
+
 		}
-		d.LastFileNumOrder = (d.LastFileNumOrder + 1) % 3
+		d.CounterOrder++
 
 	} else if stringPayments == true { // Payment case
 		path := "internals/files/folders/payments"
@@ -141,7 +134,7 @@ func (d *Demo) Producer(c *gin.Context) {
 			return
 		}
 
-		if d.LastFileNumPayment == 0 {
+		if d.CounterPayment%2 == 1 {
 			file, _ := CheckFolder(payments[1], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[1], stringData)
@@ -152,7 +145,7 @@ func (d *Demo) Producer(c *gin.Context) {
 			})
 
 			file.Close()
-		} else if d.LastFileNumPayment == 1 {
+		} else if d.CounterPayment%2 == 0 {
 			file, _ := CheckFolder(payments[0], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[0], stringData)
@@ -164,10 +157,10 @@ func (d *Demo) Producer(c *gin.Context) {
 
 			file.Close()
 		}
-
-		d.LastFileNumPayment = (d.LastFileNumPayment + 1) % 2
+		d.CounterPayment++
 
 	} else if stringOrders == false && stringPayments == false { // Default case
+		// Check for folder and open it, if it doesn't exist, Create one
 		path := "internals/files/folders/default"
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
@@ -188,23 +181,6 @@ func (d *Demo) Producer(c *gin.Context) {
 
 		defer file.Close()
 
-		// Find the offset
-		// f, err := os.Open("internals/files/folders/default/default.log")
-		// if err != nil {
-		// 	c.JSON(400, gin.H{
-		// 		"error": "there was some error oprning the file for offset counting",
-		// 	})
-		// 	return
-		// }
-
-		// scanner := bufio.NewScanner(f)
-
-		// for scanner.Scan() {
-		// 	exsOffset++
-		// }
-
-		// defer f.Close()
-
 		line := fmt.Sprintf("%d | %s\n", d.ExsOffset, stringData)
 		d.ExsOffset++
 		file.WriteString(line)
@@ -217,6 +193,8 @@ func (d *Demo) Producer(c *gin.Context) {
 }
 
 func (d *Demo) Consumer(c *gin.Context) {
+	topic := c.Query("topic")
+
 	file, err := os.Open("internals/files/test.log")
 	if err != nil {
 		c.JSON(400, gin.H{
@@ -230,6 +208,31 @@ func (d *Demo) Consumer(c *gin.Context) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	if topic == "orders" {	// For Orders
+		var OrdersPath string = "internals/files/folders/orders"
+		OrdersText, _ := ConsumerReadFiles(c, OrdersPath)
+		c.JSON(200, gin.H{
+			"message" : OrdersText,
+		})
+		return
+
+	} else if topic == "payments" {	// For Payments
+		var PaymentsPath string = "internals/files/folders/payments"
+		PaymentsText, _ := ConsumerReadFiles(c, PaymentsPath)
+		c.JSON(200, gin.H{
+			"message" : PaymentsText,
+		})
+		return
+
+	} else if topic == "" {	// For Default
+		var DefaultPath string = "internals/files/folders/default"
+		DefaultText, _ := ConsumerReadFiles(c, DefaultPath)
+		c.JSON(200, gin.H{
+			"message" : DefaultText,
+		})
+		return
+	}
+
 	offsetString := c.Query("offset")
 	if offsetString == "" {
 		// If offset is not present, scan through the entire file
@@ -241,6 +244,7 @@ func (d *Demo) Consumer(c *gin.Context) {
 		}
 		return
 	}
+
 	offset, err := strconv.Atoi(offsetString)
 	if err != nil {
 		c.JSON(400, gin.H{
@@ -248,6 +252,7 @@ func (d *Demo) Consumer(c *gin.Context) {
 		})
 		return
 	}
+
 	var cnt int = 0
 	// If offset is present, start scanning from the offset position of the file
 	for scanner.Scan() {
