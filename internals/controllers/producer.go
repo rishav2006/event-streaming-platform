@@ -4,23 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
-
-type Demo struct {
-	mu                  sync.Mutex
-	LastFileNumOrder    int
-	LastFileNumPayment  int
-	Checker             bool
-	OffsetSliceOrders   []int
-	OffsetSlicePayments []int
-	ExsOffset           int
-	CounterOrder        int
-	CounterPayment      int
-}
 
 func (d *Demo) Producer(c *gin.Context) {
 	jsonData, err := io.ReadAll(c.Request.Body)
@@ -37,24 +23,6 @@ func (d *Demo) Producer(c *gin.Context) {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
-	// Check for checker, if it's false then the offset has not been calculated yet, so calculate it
-
-	// path for orders requests
-	var orders = []string{
-		"internals/files/folders/orders/o0.log",
-		"internals/files/folders/orders/o1.log",
-		"internals/files/folders/orders/o2.log",
-	}
-
-	// path for payments requests
-	var payments = []string{
-		"internals/files/folders/payments/p0.log",
-		"internals/files/folders/payments/p1.log",
-	}
-
-	// path for default requests
-	var defaultPath string = "internals/files/folders/default/default.log"
 
 	if d.Checker == false {
 		// calculate offsets for all the files
@@ -188,91 +156,5 @@ func (d *Demo) Producer(c *gin.Context) {
 			"message": "message sent successfully",
 		})
 	}
-
-}
-
-func (d *Demo) Consumer(c *gin.Context) {
-	topic := c.Query("topic")
-	offsetString := c.Query("offset")
-
-	file, err := os.Open("internals/files/test.log")
-	if err != nil {
-		c.JSON(400, gin.H{
-			"error": "There was some error opening the file",
-		})
-		return
-	}
-	// scanner := bufio.NewScanner(file)
-	defer file.Close()
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	var offset int
-
-	if offsetString == "" {
-		offset = 0
-	} else {
-		offset, err = strconv.Atoi(offsetString)
-		if err != nil {
-			c.JSON(400, gin.H{
-				"error": "failed to convert from string to integer",
-			})
-			return
-		}
-	}
-
-	if topic == "orders" { // For Orders
-		var OrdersPath string = "internals/files/folders/orders"
-		OrdersText, _ := ConsumerReadFiles(c, OrdersPath, offset)
-		c.JSON(200, gin.H{
-			"message": OrdersText,
-		})
-		return
-
-	} else if topic == "payments" { // For Payments
-		var PaymentsPath string = "internals/files/folders/payments"
-		PaymentsText, _ := ConsumerReadFiles(c, PaymentsPath, offset)
-		c.JSON(200, gin.H{
-			"message": PaymentsText,
-		})
-		return
-
-	} else if topic == "" { // For Default
-		var DefaultPath string = "internals/files/folders/default"
-		DefaultText, _ := ConsumerReadFiles(c, DefaultPath, offset)
-		c.JSON(200, gin.H{
-			"message": DefaultText,
-		})
-		return
-	} else {
-		c.JSON(400, gin.H{
-			"error": "no such URL key exists",
-		})
-		return
-	}
-
-	// if offsetString == "" {
-	// 	// If offset is not present, scan through the entire file
-	// 	for scanner.Scan() {
-	// 		line := scanner.Text()
-	// 		c.JSON(200, gin.H{
-	// 			"message": line,
-	// 		})
-	// 	}
-	// 	return
-	// }
-
-	// var cnt int = 0
-	// // If offset is present, start scanning from the offset position of the file
-	// for scanner.Scan() {
-	// 	if cnt >= offset {
-	// 		line := scanner.Text()
-	// 		c.JSON(200, gin.H{
-	// 			"message": line,
-	// 		})
-	// 	}
-	// 	cnt++
-	// }
 
 }

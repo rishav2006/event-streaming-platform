@@ -4,8 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
-
-	// "text/scanner"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,16 +50,66 @@ func CheckFolder(path string, c *gin.Context) (*os.File, error) {
 	return file, nil
 }
 
-func ConsumerReadFiles(c *gin.Context, path string, offset int) (string, error) {
+func ConsumerReadFiles(c *gin.Context, path string, offset int, groupString string, mpp map[string][]int) ([]Answer, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		c.JSON(400, gin.H{
 			"error": "error reading/listing the files from the specified directory",
 		})
-		return "", err
+		return []Answer{}, err
 	}
 
-	var str string
+	var AnswerArray = make([]Answer, 0, 10)
+
+	var i int = 1
+	// var j int = 0 // array index counter
+	var e int = 0
+	var arr = mpp[groupString]
+	var line string
+
+	for k := 0; k < len(arr); k++ {
+		entry := entries[e]
+		var count int = 0
+		for arr[k] > 0 {
+			fullPath := filepath.Join(path, entry.Name())
+			file, err := os.Open(fullPath)
+			if err != nil {
+				c.JSON(400, gin.H{
+					"error": "could not open the file",
+				})
+				return []Answer{}, err
+			}
+			scanner := bufio.NewScanner(file)
+
+			var conNum string = "Consumer " + strconv.Itoa(i)
+			i++
+
+			for scanner.Scan() {
+				if count < offset {
+					count++
+				} else {
+					line = scanner.Text()
+					AnswerArray = append(AnswerArray, Answer{Group: groupString, Consumer: conNum, Message: line, Partition: entry.Name()})
+				}
+			}
+			arr[k]--
+		}
+	}
+
+	return AnswerArray, nil
+}
+
+func ConsumerReadFilesNoGroup(c *gin.Context, path string, offset int, topic string) ([]AnswerNoGroup, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "error reading/listing the files from the specified directory",
+		})
+		return []AnswerNoGroup{}, err
+	}
+
+	var AnswerArray = make([]AnswerNoGroup, 0, 10)
+
 	for _, entry := range entries {
 		var count int = 0
 
@@ -70,20 +119,19 @@ func ConsumerReadFiles(c *gin.Context, path string, offset int) (string, error) 
 			c.JSON(400, gin.H{
 				"error": "could not open the file",
 			})
-			return "", err
+			return []AnswerNoGroup{}, err
 		}
 		scanner := bufio.NewScanner(file)
-		
+
 		for scanner.Scan() {
 			if count < offset {
 				count++
 			} else {
 				line := scanner.Text()
-				str = str + line
-				str += "\n"
+				AnswerArray = append(AnswerArray, AnswerNoGroup{Message: line, Topic: topic, Partition: entry.Name()})
 			}
 		}
 
 	}
-	return str, nil
+	return AnswerArray, nil
 }
