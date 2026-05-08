@@ -60,7 +60,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			file.WriteString(line)
 			d.OffsetSliceOrders[0]++
 			c.JSON(201, gin.H{
-				"message": "message successfully sent to orders catalog",
+				"partition": PartitionNumFinder(file.Name(), "orders"),
+				"offset":    d.OffsetSliceOrders[0],
+				"message":   "message successfully sent to orders catalog",
 			})
 			file.Close()
 
@@ -72,7 +74,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			fmt.Println(line, 1)
 			d.OffsetSliceOrders[1]++
 			c.JSON(201, gin.H{
-				"message": "message successfully sent to orders catalog",
+				"partition": PartitionNumFinder(file.Name(), "orders"),
+				"offset":    d.OffsetSliceOrders[1],
+				"message":   "message successfully sent to orders catalog",
 			})
 			file.Close()
 
@@ -84,7 +88,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			fmt.Println(line, 2)
 			d.OffsetSliceOrders[2]++
 			c.JSON(201, gin.H{
-				"message": "message successfully sent to orders catalog",
+				"partition": PartitionNumFinder(file.Name(), "orders"),
+				"offset":    d.OffsetSliceOrders[2],
+				"message":   "message successfully sent to orders catalog",
 			})
 			file.Close()
 
@@ -108,7 +114,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			file.WriteString(line)
 			d.OffsetSlicePayments[1]++
 			c.JSON(201, gin.H{
-				"message": "message successfully sent to payments catalog",
+				"partition": PartitionNumFinder(file.Name(), "payments"),
+				"offset":    d.OffsetSlicePayments[1],
+				"message":   "message successfully sent to payments catalog",
 			})
 
 			file.Close()
@@ -119,7 +127,9 @@ func (d *Demo) Producer(c *gin.Context) {
 			file.WriteString(line)
 			d.OffsetSlicePayments[0]++
 			c.JSON(201, gin.H{
-				"message": "message successfully sent to payments catalog",
+				"partition": PartitionNumFinder(file.Name(), "payments"),
+				"offset":    d.OffsetSlicePayments[0],
+				"message":   "message successfully sent to payments catalog",
 			})
 
 			file.Close()
@@ -153,7 +163,9 @@ func (d *Demo) Producer(c *gin.Context) {
 		file.WriteString(line)
 
 		c.JSON(201, gin.H{
-			"message": "message sent successfully",
+			"partition": PartitionNumFinder(file.Name(), "default"),
+			"offset":    d.ExsOffset,
+			"message":   "message successfully sent to default catalog",
 		})
 	}
 

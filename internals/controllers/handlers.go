@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -88,8 +90,14 @@ func ConsumerReadFiles(c *gin.Context, path string, offset int, groupString stri
 				if count < offset {
 					count++
 				} else {
+					// var offsetNum string
 					line = scanner.Text()
-					AnswerArray = append(AnswerArray, Answer{Group: groupString, Consumer: conNum, Message: line, Partition: entry.Name()})
+					re := regexp.MustCompile(`^[\d]+`)
+					match := re.FindString(line)
+					_, actualMessage, found := strings.Cut(line, "| ")
+					if found {
+						AnswerArray = append(AnswerArray, Answer{Group: groupString, Consumer: conNum, Message: actualMessage, Partition: entry.Name(), Offset: match})
+					}
 				}
 			}
 			arr[k]--
@@ -134,4 +142,20 @@ func ConsumerReadFilesNoGroup(c *gin.Context, path string, offset int, topic str
 
 	}
 	return AnswerArray, nil
+}
+
+func PartitionNumFinder(path string, topic string) string {
+	if topic == "orders" {
+		var s1 = strings.ReplaceAll(path, "internals/files/folders/orders/", "")
+		var s2 = strings.ReplaceAll(s1, ".log", "")
+		return s2
+	} else if topic == "payments" {
+		var s1 = strings.ReplaceAll(path, "internals/files/folders/payments/", "")
+		var s2 = strings.ReplaceAll(s1, ".log", "")
+		return s2
+	} else {
+		var s1 = strings.ReplaceAll(path, "internals/files/folders/default/", "")
+		var s2 = strings.ReplaceAll(s1, ".log", "")
+		return s2
+	}
 }

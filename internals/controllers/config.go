@@ -1,6 +1,8 @@
 package controllers
 
-import "sync"
+import (
+	"sync"
+)
 
 type Demo struct {
 	mu                  sync.Mutex
@@ -15,6 +17,7 @@ type Demo struct {
 }
 
 type AnswerNoGroup struct {
+	Offset    string
 	Message   string
 	Partition string
 	Topic     string
@@ -23,6 +26,13 @@ type AnswerNoGroup struct {
 type Answer struct {
 	Group     string
 	Consumer  string
+	Offset    string
+	Message   string
+	Partition string
+}
+
+type ConsumeMsg struct {
+	Offset    int
 	Message   string
 	Partition string
 }
