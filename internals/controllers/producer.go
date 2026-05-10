@@ -27,14 +27,27 @@ func (d *Demo) Producer(c *gin.Context) {
 	if d.Checker == false {
 		// calculate offsets for all the files
 
+		// Temporaray Storage
+		var temp int
+
 		// For orders
-		OffsetCalc(c, orders[0], &d.OffsetSliceOrders, 0)
-		OffsetCalc(c, orders[1], &d.OffsetSliceOrders, 1)
-		OffsetCalc(c, orders[2], &d.OffsetSliceOrders, 2)
+		OffsetCalc(c, orders[0], &temp, &d.OffsetSliceOrders, 0)
+		OffsetCalc(c, orders[1], &temp, &d.OffsetSliceOrders, 1)
+		OffsetCalc(c, orders[2], &temp, &d.OffsetSliceOrders, 2)
+
+		if temp != 0 {
+			d.CounterOrder = temp
+			temp = 0
+		}
 
 		// For payments
-		OffsetCalc(c, payments[0], &d.OffsetSlicePayments, 0)
-		OffsetCalc(c, payments[1], &d.OffsetSlicePayments, 1)
+		OffsetCalc(c, payments[0], &temp, &d.OffsetSlicePayments, 0)
+		OffsetCalc(c, payments[1], &temp, &d.OffsetSlicePayments, 1)
+
+		if temp != 0 {
+			d.CounterPayment = temp
+			temp = 0
+		}
 
 		// For default
 		OffsetCalcInt(c, defaultPath, &d.ExsOffset)
@@ -58,12 +71,12 @@ func (d *Demo) Producer(c *gin.Context) {
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[0], stringData)
 			fmt.Println(line, 0)
 			file.WriteString(line)
-			d.OffsetSliceOrders[0]++
 			c.JSON(201, gin.H{
 				"partition": PartitionNumFinder(file.Name(), "orders"),
 				"offset":    d.OffsetSliceOrders[0],
 				"message":   "message successfully sent to orders catalog",
 			})
+			d.OffsetSliceOrders[0]++
 			file.Close()
 
 		} else if d.CounterOrder%3 == 1 {
@@ -72,12 +85,12 @@ func (d *Demo) Producer(c *gin.Context) {
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[1], stringData)
 			file.WriteString(line)
 			fmt.Println(line, 1)
-			d.OffsetSliceOrders[1]++
 			c.JSON(201, gin.H{
 				"partition": PartitionNumFinder(file.Name(), "orders"),
 				"offset":    d.OffsetSliceOrders[1],
 				"message":   "message successfully sent to orders catalog",
 			})
+			d.OffsetSliceOrders[1]++
 			file.Close()
 
 		} else if d.CounterOrder%3 == 2 {
@@ -86,12 +99,12 @@ func (d *Demo) Producer(c *gin.Context) {
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSliceOrders[2], stringData)
 			file.WriteString(line)
 			fmt.Println(line, 2)
-			d.OffsetSliceOrders[2]++
 			c.JSON(201, gin.H{
 				"partition": PartitionNumFinder(file.Name(), "orders"),
 				"offset":    d.OffsetSliceOrders[2],
 				"message":   "message successfully sent to orders catalog",
 			})
+			d.OffsetSliceOrders[2]++
 			file.Close()
 
 		}
@@ -112,26 +125,25 @@ func (d *Demo) Producer(c *gin.Context) {
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[1], stringData)
 			file.WriteString(line)
-			d.OffsetSlicePayments[1]++
 			c.JSON(201, gin.H{
 				"partition": PartitionNumFinder(file.Name(), "payments"),
 				"offset":    d.OffsetSlicePayments[1],
 				"message":   "message successfully sent to payments catalog",
 			})
-
+			d.OffsetSlicePayments[1]++
 			file.Close()
 		} else if d.CounterPayment%2 == 0 {
 			file, _ := CheckFolder(payments[0], c)
 
 			line := fmt.Sprintf("%d | %s\n", d.OffsetSlicePayments[0], stringData)
 			file.WriteString(line)
-			d.OffsetSlicePayments[0]++
 			c.JSON(201, gin.H{
 				"partition": PartitionNumFinder(file.Name(), "payments"),
 				"offset":    d.OffsetSlicePayments[0],
 				"message":   "message successfully sent to payments catalog",
 			})
-
+			
+			d.OffsetSlicePayments[0]++
 			file.Close()
 		}
 		d.CounterPayment++

@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func OffsetCalc(c *gin.Context, path string, s *[]int, k int) {
+func OffsetCalc2(c *gin.Context, path string, s *[]int, k int) {
 	f, err := os.Open(path)
 	if err != nil {
 		c.JSON(400, gin.H{
@@ -21,6 +21,22 @@ func OffsetCalc(c *gin.Context, path string, s *[]int, k int) {
 	}
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
+		(*s)[k]++
+	}
+	f.Close()
+}
+
+func OffsetCalc(c *gin.Context, path string, t *int, s *[]int, k int) {
+	f, err := os.Open(path)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "there was some error opening the file for offset calculation",
+		})
+		return
+	}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		*t++
 		(*s)[k]++
 	}
 	f.Close()
@@ -64,15 +80,15 @@ func ConsumerReadFiles(c *gin.Context, path string, offset int, groupString stri
 	var AnswerArray = make([]Answer, 0, 10)
 
 	var i int = 1
-	// var j int = 0 // array index counter
 	var e int = 0
 	var arr = mpp[groupString]
 	var line string
 
 	for k := 0; k < len(arr); k++ {
-		entry := entries[e]
-		var count int = 0
 		for arr[k] > 0 {
+			var count int = 0
+			entry := entries[e]
+			e++
 			fullPath := filepath.Join(path, entry.Name())
 			file, err := os.Open(fullPath)
 			if err != nil {
